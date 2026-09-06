@@ -145,13 +145,15 @@ jobs:
 
       - name: Extract and prepare binaries
         run: |
-          for f in release/*/*.tar.gz; do
+          shopt -s nullglob
+          for f in release/*.tar.gz; do
             tar -xzf "$f" -C release
+            rm "$f"
           done
-          find release -maxdepth 1 -type f -name "jjuza-db-linux" -exec chmod +x {} \;
-          find release -maxdepth 1 -type f -name "jjuza-db-macos" -exec chmod +x {} \;
+          [ -f release/jjuza-db-linux ] && chmod +x release/jjuza-db-linux
+          [ -f release/jjuza-db-macos ] && chmod +x release/jjuza-db-macos
         shell: bash
-        
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
