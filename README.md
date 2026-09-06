@@ -631,12 +631,44 @@ For example:
 v0.1.0
 
 Assets:
-├── jjuza-db-linux
-├──jjuza-db-macos
-└──jjuza-db-windows.exe
+├── jjuza-db-linux.tar.gz
+├──jjuza-db-macos.tar.gz
+└──jjuza-db.exe
 ```
 
 Users can download the appropriate executable without installing Python.
+
+### macOS: "Apple could not verify..." warning
+
+Since these builds aren't code-signed with an Apple Developer certificate, macOS will
+block the binary the first time you try to run it, with a warning like:
+
+> "jjuza-db" cannot be opened because Apple could not verify it is free of malware.
+
+To run it anyway:
+
+1. Extract the archive:
+
+```bash
+   tar -xzf jjuza-db-macos.tar.gz
+```
+
+2. Remove the quarantine attribute macOS adds to downloaded files:
+
+```bash
+   xattr -d com.apple.quarantine ./jjuza-db
+```
+
+3. Make it executable and run it:
+
+```bash
+   chmod +x ./jjuza-db
+   ./jjuza-db
+```
+
+Alternatively, after extracting, right-click (or Control-click) `jjuza-db` in Finder,
+choose **Open**, then confirm in the dialog that appears. This only works via
+right-click — double-clicking will refuse to open it.
 
 ---
 
