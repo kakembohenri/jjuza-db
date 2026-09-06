@@ -1,0 +1,115 @@
+name: Create Jjuza DB Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. v0.1.0)"
+        required: true
+        type: string
+
+      prerelease:
+        description: "Mark as pre-release"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: jjuza-db-linux
+            executable_name: jjuza-db
+
+          - os: windows-latest
+            artifact_name: jjuza-db-windows
+            executable_name: jjuza-db.exe
+
+          - os: macos-latest
+            artifact_name: jjuza-db-macos
+            executable_name: jjuza-db
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+
+      - name: Build executable
+        run: |
+          pyinstaller \
+            --onefile \
+            --name jjuza-db \
+            --collect-all pyfiglet \
+            --hidden-import=pyodbc
+            jjuza_db/main.py
+        shell: bash
+
+      - name: Rename executable
+        shell: bash
+        run: |
+          mv "dist/${{ matrix.executable_name }}" \
+             "dist/${{ matrix.artifact_name }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist/${{ matrix.artifact_name }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download Linux executable
+        uses: actions/download-artifact@v4
+        with:
+          name: jjuza-db-linux
+          path: release
+
+      - name: Download Windows executable
+        uses: actions/download-artifact@v4
+        with:
+          name: jjuza-db-windows
+          path: release
+
+      - name: Download macOS executable
+        uses: actions/download-artifact@v4
+        with:
+          name: jjuza-db-macos
+          path: release
+
+      - name: Make Unix executables executable
+        run: |
+          chmod +x release/jjuza-db-linux
+          chmod +x release/jjuza-db-macos
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.version }}
+          name: Jjuza DB ${{ inputs.version }}
+          prerelease: ${{ inputs.prerelease }}
+          generate_release_notes: true
+          files: |
+            release/jjuza-db-linux
+            release/jjuza-db-windows.exe
+            release/jjuza-db-macos
