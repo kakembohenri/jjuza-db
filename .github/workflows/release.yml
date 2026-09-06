@@ -14,28 +14,45 @@ on:
         default: false
         type: boolean
 
+      os:
+        description: "Operating system to build for"
+        required: true
+        type: choice
+        default: all
+        options:
+          - all
+          - linux
+          - windows
+          - macos
+
 permissions:
   contents: write
 
 jobs:
   build:
     name: Build ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
 
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
+          - ruuner: ubuntu-latest
+            target: linux
             artifact_name: jjuza-db-linux
             executable_name: jjuza-db
 
-          - os: windows-latest
+          - ruuner: windows-latest
+            target: windows
             artifact_name: jjuza-db-windows
             executable_name: jjuza-db.exe
 
-          - os: macos-latest
+          - ruuner: macos-latest
+            target: macos
             artifact_name: jjuza-db-macos
             executable_name: jjuza-db
+
+    if: ${{ inputs.os == 'all' || inputs.os == matrix.target }}
+
+    runs-on: ${{ matrix.runner }}
 
     steps:
       - name: Checkout repository
@@ -80,18 +97,21 @@ jobs:
 
     steps:
       - name: Download Linux executable
+        if: ${{ inputs.os == 'all' || inputs.os == 'linux' }}
         uses: actions/download-artifact@v4
         with:
           name: jjuza-db-linux
           path: release
 
       - name: Download Windows executable
+        if: ${{ inputs.os == 'all' || inputs.os == 'windows' }}
         uses: actions/download-artifact@v4
         with:
           name: jjuza-db-windows
           path: release
 
       - name: Download macOS executable
+        if: ${{ inputs.os == 'all' || inputs.os == 'macos' }}
         uses: actions/download-artifact@v4
         with:
           name: jjuza-db-macos
@@ -99,8 +119,13 @@ jobs:
 
       - name: Make Unix executables executable
         run: |
-          chmod +x release/jjuza-db-linux
-          chmod +x release/jjuza-db-macos
+          if [ -f "release/jjuza-db-linux" ]; then
+            chmod +x release/jjuza-db-linux
+          fi
+
+          if [ -f "release/jjuza-db-macos" ]; then
+            chmod +x release/jjuza-db-macos
+          fi
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -110,6 +135,4 @@ jobs:
           prerelease: ${{ inputs.prerelease }}
           generate_release_notes: true
           files: |
-            release/jjuza-db-linux
-            release/jjuza-db-windows.exe
-            release/jjuza-db-macos
+            release/*
