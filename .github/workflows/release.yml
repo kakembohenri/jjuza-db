@@ -99,17 +99,22 @@ jobs:
             jjuza_db/main.py
         shell: bash
 
-      - name: Rename build output for upload
+      - name: Package build output for upload
         run: |
           mkdir -p out
           cp dist/${{ matrix.binary_name }} out/${{ matrix.artifact_name }}${{ matrix.target == 'windows' && '.exe' || '' }}
+          chmod +x out/${{ matrix.artifact_name }} || true
+          if [ "${{ matrix.target }}" != "windows" ]; then
+            tar -czf out/${{ matrix.artifact_name }}.tar.gz -C out ${{ matrix.artifact_name }}
+            rm out/${{ matrix.artifact_name }}
+          fi
         shell: bash
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: out/${{ matrix.artifact_name }}${{ matrix.target == 'windows' && '.exe' || '' }}
+          path: out/*
 
   release:
     name: Create GitHub Release
@@ -138,11 +143,15 @@ jobs:
           name: jjuza-db-macos
           path: release
 
-      - name: Make Unix executables executable
+      - name: Extract and prepare binaries
         run: |
-          chmod +x release/jjuza-db-linux 2>/dev/null || true
-          chmod +x release/jjuza-db-macos 2>/dev/null || true
-
+          for f in release/*/*.tar.gz; do
+            tar -xzf "$f" -C release
+          done
+          find release -maxdepth 1 -type f -name "jjuza-db-linux" -exec chmod +x {} \;
+          find release -maxdepth 1 -type f -name "jjuza-db-macos" -exec chmod +x {} \;
+        shell: bash
+        
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
