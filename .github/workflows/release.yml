@@ -30,61 +30,54 @@ permissions:
 
 jobs:
   build:
-    name: Build ${{ matrix.os }}
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
 
     strategy:
       matrix:
         include:
-          - ruuner: ubuntu-latest
+          - runner: ubuntu-latest
             target: linux
             artifact_name: jjuza-db-linux
-            executable_name: jjuza-db
 
-          - ruuner: windows-latest
+          - runner: windows-latest
             target: windows
             artifact_name: jjuza-db-windows
-            executable_name: jjuza-db.exe
 
-          - ruuner: macos-latest
+          - runner: macos-latest
             target: macos
             artifact_name: jjuza-db-macos
-            executable_name: jjuza-db
-
-    if: ${{ inputs.os == 'all' || inputs.os == matrix.target }}
-
-    runs-on: ${{ matrix.runner }}
 
     steps:
       - name: Checkout repository
+        if: ${{ inputs.os == 'all' || inputs.os == matrix.target }}
         uses: actions/checkout@v4
 
       - name: Set up Python
+        if: ${{ inputs.os == 'all' || inputs.os == matrix.target }}
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
 
       - name: Install dependencies
+        if: ${{ inputs.os == 'all' || inputs.os == matrix.target }}
         run: |
           python -m pip install --upgrade pip
           pip install .
 
       - name: Build executable
+        if: ${{ inputs.os == 'all' || inputs.os == matrix.target }}
         run: |
           pyinstaller \
             --onefile \
             --name jjuza-db \
             --collect-all pyfiglet \
-            --hidden-import=pyodbc
+            --hidden-import=pyodbc \
             jjuza_db/main.py
         shell: bash
 
-      - name: Rename executable
-        shell: bash
-        run: |
-          mv "dist/${{ matrix.executable_name }}" \
-             "dist/${{ matrix.artifact_name }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}"
-
       - name: Upload build artifact
+        if: ${{ inputs.os == 'all' || inputs.os == matrix.target }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
@@ -119,12 +112,8 @@ jobs:
 
       - name: Make Unix executables executable
         run: |
-          if [ -f "release/jjuza-db-linux" ]; then
-            chmod +x release/jjuza-db-linux
-          fi
-
-          if [ -f "release/jjuza-db-macos" ]; then
-            chmod +x release/jjuza-db-macos
+          if [ -f "release/jjuza-db" ]; then
+            chmod +x release/jjuza-db
           fi
 
       - name: Create GitHub Release
