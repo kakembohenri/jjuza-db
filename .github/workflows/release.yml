@@ -102,11 +102,13 @@ jobs:
       - name: Package build output for upload
         run: |
           mkdir -p out
-          cp dist/${{ matrix.binary_name }} out/${{ matrix.artifact_name }}${{ matrix.target == 'windows' && '.exe' || '' }}
-          chmod +x out/${{ matrix.artifact_name }} || true
-          if [ "${{ matrix.target }}" != "windows" ]; then
-            tar -czf out/${{ matrix.artifact_name }}.tar.gz -C out ${{ matrix.artifact_name }}
-            rm out/${{ matrix.artifact_name }}
+          if [ "${{ matrix.target }}" = "windows" ]; then
+            cp dist/${{ matrix.binary_name }} out/jjuza-db.exe
+          else
+            cp dist/${{ matrix.binary_name }} out/jjuza-db
+            chmod +x out/jjuza-db
+            tar -czf out/${{ matrix.artifact_name }}.tar.gz -C out jjuza-db
+            rm out/jjuza-db
           fi
         shell: bash
 
