@@ -14,7 +14,7 @@ on:
         default: false
         type: boolean
 
-      os:
+      target_os:
         description: "Operating system to build for"
         required: true
         type: choice
@@ -31,42 +31,53 @@ permissions:
 jobs:
   build:
     name: Build ${{ matrix.target }}
+    if: ${{ inputs.target_os == 'all' || inputs.target_os == matrix.target }}
     runs-on: ${{ matrix.runner }}
 
     strategy:
+      fail-fast: false
       matrix:
         include:
           - runner: ubuntu-latest
             target: linux
+            binary_name: jjuza-db
             artifact_name: jjuza-db-linux
 
           - runner: windows-latest
             target: windows
+            binary_name: jjuza-db.exe
             artifact_name: jjuza-db-windows
 
           - runner: macos-latest
             target: macos
+            binary_name: jjuza-db
             artifact_name: jjuza-db-macos
 
     steps:
       - name: Checkout repository
-        if: ${{ inputs.os == 'all' || inputs.os == matrix.target }}
         uses: actions/checkout@v4
 
       - name: Set up Python
-        if: ${{ inputs.os == 'all' || inputs.os == matrix.target }}
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+          cache: pip
+
+      - name: Install system ODBC dependencies (Linux)
+        if: matrix.target == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y unixodbc-dev
+
+      - name: Install system ODBC dependencies (macOS)
+        if: matrix.target == 'macos'
+        run: brew install unixodbc
 
       - name: Install dependencies
-        if: ${{ inputs.os == 'all' || inputs.os == matrix.target }}
         run: |
           python -m pip install --upgrade pip
           pip install .
+          pip install pyinstaller
 
       - name: Build executable
-        if: ${{ inputs.os == 'all' || inputs.os == matrix.target }}
         run: |
           pyinstaller \
             --onefile \
@@ -76,12 +87,17 @@ jobs:
             jjuza_db/main.py
         shell: bash
 
+      - name: Rename build output for upload
+        run: |
+          mkdir -p out
+          cp dist/${{ matrix.binary_name }} out/${{ matrix.artifact_name }}${{ matrix.target == 'windows' && '.exe' || '' }}
+        shell: bash
+
       - name: Upload build artifact
-        if: ${{ inputs.os == 'all' || inputs.os == matrix.target }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: dist/${{ matrix.artifact_name }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+          path: out/${{ matrix.artifact_name }}${{ matrix.target == 'windows' && '.exe' || '' }}
 
   release:
     name: Create GitHub Release
@@ -90,21 +106,21 @@ jobs:
 
     steps:
       - name: Download Linux executable
-        if: ${{ inputs.os == 'all' || inputs.os == 'linux' }}
+        if: ${{ inputs.target_os == 'all' || inputs.target_os == 'linux' }}
         uses: actions/download-artifact@v4
         with:
           name: jjuza-db-linux
           path: release
 
       - name: Download Windows executable
-        if: ${{ inputs.os == 'all' || inputs.os == 'windows' }}
+        if: ${{ inputs.target_os == 'all' || inputs.target_os == 'windows' }}
         uses: actions/download-artifact@v4
         with:
           name: jjuza-db-windows
           path: release
 
       - name: Download macOS executable
-        if: ${{ inputs.os == 'all' || inputs.os == 'macos' }}
+        if: ${{ inputs.target_os == 'all' || inputs.target_os == 'macos' }}
         uses: actions/download-artifact@v4
         with:
           name: jjuza-db-macos
@@ -112,9 +128,8 @@ jobs:
 
       - name: Make Unix executables executable
         run: |
-          if [ -f "release/jjuza-db" ]; then
-            chmod +x release/jjuza-db
-          fi
+          chmod +x release/jjuza-db-linux 2>/dev/null || true
+          chmod +x release/jjuza-db-macos 2>/dev/null || true
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
