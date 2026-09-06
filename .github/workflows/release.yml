@@ -29,29 +29,42 @@ permissions:
   contents: write
 
 jobs:
+  prepare:
+    name: Compute build matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - id: set-matrix
+        run: |
+          case "${{ inputs.target_os }}" in
+            all)
+              matrix='{"include":[
+                {"runner":"ubuntu-latest","target":"linux","binary_name":"jjuza-db","artifact_name":"jjuza-db-linux"},
+                {"runner":"windows-latest","target":"windows","binary_name":"jjuza-db.exe","artifact_name":"jjuza-db-windows"},
+                {"runner":"macos-latest","target":"macos","binary_name":"jjuza-db","artifact_name":"jjuza-db-macos"}
+              ]}'
+              ;;
+            linux)
+              matrix='{"include":[{"runner":"ubuntu-latest","target":"linux","binary_name":"jjuza-db","artifact_name":"jjuza-db-linux"}]}'
+              ;;
+            windows)
+              matrix='{"include":[{"runner":"windows-latest","target":"windows","binary_name":"jjuza-db.exe","artifact_name":"jjuza-db-windows"}]}'
+              ;;
+            macos)
+              matrix='{"include":[{"runner":"macos-latest","target":"macos","binary_name":"jjuza-db","artifact_name":"jjuza-db-macos"}]}'
+              ;;
+          esac
+          echo "matrix=$(echo "$matrix" | tr -d '\n' | tr -s ' ')" >> "$GITHUB_OUTPUT"
+
   build:
     name: Build ${{ matrix.target }}
-    if: ${{ inputs.target_os == 'all' || inputs.target_os == matrix.target }}
+    needs: prepare
     runs-on: ${{ matrix.runner }}
 
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - runner: ubuntu-latest
-            target: linux
-            binary_name: jjuza-db
-            artifact_name: jjuza-db-linux
-
-          - runner: windows-latest
-            target: windows
-            binary_name: jjuza-db.exe
-            artifact_name: jjuza-db-windows
-
-          - runner: macos-latest
-            target: macos
-            binary_name: jjuza-db
-            artifact_name: jjuza-db-macos
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
 
     steps:
       - name: Checkout repository
@@ -75,7 +88,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install .
-          pip install pyinstaller
 
       - name: Build executable
         run: |
