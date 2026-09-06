@@ -143,17 +143,6 @@ jobs:
           name: jjuza-db-macos
           path: release
 
-      - name: Extract and prepare binaries
-        run: |
-          shopt -s nullglob
-          for f in release/*.tar.gz; do
-            tar -xzf "$f" -C release
-            rm "$f"
-          done
-          [ -f release/jjuza-db-linux ] && chmod +x release/jjuza-db-linux
-          [ -f release/jjuza-db-macos ] && chmod +x release/jjuza-db-macos
-        shell: bash
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
